@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FF Tournament Hub - Online Admin</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+        body { background-color: #121212; color: white; font-family: sans-serif; padding: 15px; margin: 0; padding-bottom: 80px; overflow-x: hidden; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .card { background: #1e1e1e; padding: 15px; border-radius: 10px; border: 1px solid #333; margin-top: 15px; width: 100%; }
+        .btn-primary { background: #ff6600; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        .btn-free { background: #7b2cbf; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        .btn-confirmed { background: #2b9348; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: default; margin-top: 10px; }
+        .btn-disabled { background: #444; color: #888; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: not-allowed; margin-top: 10px; }
+        .btn-danger { background: #d90429; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; margin-top: 8px; width: 100%; }
+        .btn-admin { background: #2a2a2a; color: white; border: 1px solid #444; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .btn-google { background: #db4437; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 15px; }
+        input, select { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #444; background: #222; color: white; font-size: 14px; }
+        label { font-size: 13px; color: #aaa; display: block; margin-top: 10px; }
+        .tournament-card { background: #1a1a1a; border: 1px solid #333; border-left: 4px solid #ff6600; padding: 12px; border-radius: 8px; margin-top: 15px; }
+        .tournament-card.free-card { border-left-color: #7b2cbf; }
+        .timer-badge { background: #2d1a1a; color: #ff6b6b; padding: 6px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; display: block; margin-top: 6px; }
+        .qr-box { background: #fff; padding: 10px; text-align: center; border-radius: 8px; margin-top: 10px; color: black; }
+        .player-item { background: #2b2b2b; padding: 10px; border-radius: 6px; margin-top: 8px; border-left: 3px solid #ff6600; font-size: 13px; }
+        .preview-img { width: 100%; max-height: 100px; object-fit: contain; margin-top: 6px; border-radius: 4px; background: #000; cursor: pointer; border: 1px solid #555; }
+        .room-box { background: #1b4332; border: 1px solid #2d6a4f; padding: 10px; border-radius: 6px; margin-top: 10px; }
+        .leaderboard-box { background: #1f1b2e; border: 1px solid #4a3b6c; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 13px; }
+        .time-ago { font-size: 12px; color: #ffcc00; background: #333; padding: 3px 6px; border-radius: 4px; display: inline-block; margin-top: 5px; }
+        
+        #imageModal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); align-items: center; justify-content: center; flex-direction: column; }
+        #imageModal img { max-width: 90%; max-height: 80%; border-radius: 8px; border: 2px solid #ff6600; }
+        #imageModal button { margin-top: 15px; background: #d90429; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #181818; border-top: 1px solid #333; display: flex; justify-content: space-around; padding: 10px 0; z-index: 1000; }
+        .nav-item { color: #aaa; text-align: center; font-size: 12px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- Firebase Configuration Setup -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyD...",
+            authDomain: "ff-tournament-hub.firebaseapp.com",
+            projectId: "ff-tournament-hub",
+            storageBucket: "ff-tournament-hub.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:123456:web:abcd"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        const ADMIN_EMAIL = "satyajit@gmail.com"; 
+    </script>
+
+    <div id="imageModal" onclick="closeModal()">
+        <img id="modalImg" src="">
+        <button onclick="closeModal()">বন্ধ করুন (Close)</button>
+    </div>
+
+    <div class="header">
+        <div>
+            <h3 style="margin:0; color:#ff6600;">🔥 FF Tournament Hub</h3>
+        </div>
+        <div>
+            <button class="btn-admin" onclick="switchSection('home')">Home</button>
+            <button class="btn-admin" onclick="checkAdminAccess()">Admin Panel</button>
+        </div>
+    </div>
+
+    <div id="homeSection">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+            <h3 style="margin:0;">Upcoming & Results Tournaments</h3>
+        </div>
+        <div id="tournamentsList"></div>
+    </div>
+
+    <!-- Login Section for Admin -->
+    <div id="loginSection" style="display:none;">
+        <div class="card" style="text-align: center; padding: 30px 15px;">
+            <h3 style="color:#ff6600; margin-top:0;">🛡️ Admin Authentication</h3>
+            <p style="font-size: 13px; color: #aaa;">অ্যাডমিন প্যানেল এক্সেস করতে আপনার জিমেইল দিয়ে লগইন করুন।</p>
+            <button class="btn-google" onclick="loginWithGoogle()">
+                🔑 Google দিয়ে লগইন করুন
+            </button>
+            <button class="btn-admin" style="width:100%; margin-top:15px; background:#444;" onclick="switchSection('home')">ফিরে যান</button>
+        </div>
+    </div>
+
+    <div id="joinSection" style="display:none;">
+        <div class="card">
+            <h3 id="joinMatchTitle" style="color:#ff6600; margin-top:0;">Tournament Registration</h3>
+            <p id="joinFeeText" style="font-size: 13px; color: #ddd;"></p>
+
+            <div id="paymentBoxContainer">
+                <div class="qr-box">
+                    <b>[ QR কোড স্ক্যান করে পেমেন্ট করুন ]</b>
+                    <p style="font-size: 11px; margin: 4px 0; color: #555;">UPI ID: tournament@paytm</p>
+                </div>
+                <label>পেমেন্ট স্ক্রিনশট আপলোড করুন:</label>
+                <input type="file" id="pScreenshot" accept="image/*" onchange="handleImage(this)">
+            </div>
+
+            <label>ইন-গেম নাম (Game Name):</label>
+            <input type="text" id="pName" placeholder="আপনার ফ্রি ফায়ার নাম">
+
+            <label>ফ্রি ফায়ার ইউআইডি (Free Fire UID): <small style="color:#ff6600;">(শুধুমাত্র ৮ থেকে ১২ ডিজিট)</small></label>
+            <input type="text" id="pUid" placeholder="যেমন: 2837492090" maxlength="12">
+
+            <label>হোয়াটসঅ্যাপ নম্বর (WhatsApp): <small style="color:#ff6600;">(সঠিক ১০ ডিজিট)</small></label>
+            <input type="text" id="pPhone" placeholder="যেমন: 9876543211" maxlength="10">
+
+            <button class="btn-primary" id="submitRegBtn" onclick="submitRegistration()">সাবমিট করুন</button>
+            <button class="btn-admin" style="width:100%; margin-top:8px; background:#444;" onclick="switchSection('home')">ফিরে যান</button>
+        </div>
+    </div>
+
+    <div id="adminSection" style="display:none;">
+        <div class="card" style="border-color: #ff6600;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin:0; color:#ff6600;">🛡️ Admin Panel</h3>
+                <button class="btn-danger" style="width: auto; padding: 5px 10px; margin: 0;" onclick="logoutAdmin()">লগআউট</button>
+            </div>
+            
+            <label><b>নতুন টুর্নামেন্ট তৈরি করুন:</b></label>
+            
+            <label>টুর্নামেন্টের নাম:</label>
+            <input type="text" id="tName" placeholder="যেমন: Free GiveAway Match">
+
+            <label>ম্যাচ ফরম্যাট/টাইপ:</label>
+            <select id="tType">
+                <option>LONE WOLF 1vs1</option>
+                <option>BATTLE ROYALE SOLO</option>
+                <option>BATTLE ROYALE DUO</option>
+                <option>BATTLE ROYALE SQUAD</option>
+                <option>CLASH SQUAD 4vs4</option>
+            </select>
+
+            <label>ম্যাচ শুরুর ফিক্সড সময় (রিয়েল-টাইম):</label>
+            <input type="datetime-local" id="tDateTime">
+
+            <label>এন্ট্রি ফি (Entry Fee ₹) <small style="color:#7b2cbf;">(ফ্রি ম্যাচের জন্য '0' বা ফাঁকা রাখুন)</small>:</label>
+            <input type="number" id="tFee" placeholder="যেমন: 0 বা 5">
+
+            <label>মোট প্রাইজ পুল (Total Prize Pool ₹):</label>
+            <input type="number" id="tPrize" placeholder="যেমন: 50">
+
+            <label>সর্বোচ্চ প্লেয়ার সংখ্যা (Max Players):</label>
+            <input type="number" id="tMaxPlayers" placeholder="যেমন: 12">
+
+            <label>পার কিল প্রাইজ (Per Kill Prize ₹):</label>
+            <input type="number" id="tPerKill" placeholder="যেমন: 2">
+
+            <label>রুম আইডি (Room ID):</label>
+            <input type="text" id="tRoomId" placeholder="যেমন: 9876543">
+
+            <label>রুম পাসওয়ার্ড (Room Password):</label>
+            <input type="text" id="tRoomPass" placeholder="যেমন: 123">
+
+            <button class="btn-primary" onclick="createTournament()">+ Add Tournament</button>
+
+            <hr style="border-color: #444; margin: 20px 0;">
+
+            <h4 style="color: #ffcc00;">🏆 উইনার্স ও টপ কিলার রেজাল্ট সেটআপ (ম্যাচ শেষে):</h4>
+            <label>যে টুর্নামেন্টের রেজাল্ট দেবেন তা সিলেক্ট করুন:</label>
+            <select id="resultTournamentSelect" onchange="loadTournamentResultData()"></select>
+
+            <label>🥇 ১ম স্থানাধিকারী (1st Winner Name / UID):</label>
+            <input type="text" id="resFirst" placeholder="যেমন: PlayerX (UID: 12345)">
+
+            <label>🥈 ২য় স্থানাধিকারী (2nd Winner - যদি থাকে):</label>
+            <input type="text" id="resSecond" placeholder="যেমন: PlayerY">
+
+            <label>🥉 ৩য় স্থানাধিকারী (3rd Winner - যদি থাকে):</label>
+            <input type="text" id="resThird" placeholder="যেমন: PlayerZ">
+
+            <label>🔥 টপ কিলার (Top Killer Name & Kills):</label>
+            <input type="text" id="resTopKiller" placeholder="যেমন: Tiger (6 Kills)">
+
+            <button class="btn-primary" style="background: #2a9d8f;" onclick="saveTournamentResults()">💾 রেজাল্ট সেভ করুন</button>
+
+            <hr style="border-color: #444; margin: 20px 0;">
+
+            <h4 style="color: #ffcc00;">🛠️ লাইভ টুর্নামেন্ট ম্যানেজমেন্ট ও ডিলিট অপশন:</h4>
+            <div id="adminTournamentManageList"></div>
+
+            <hr style="border-color: #444; margin: 20px 0;">
+
+            <h4>📋 রেজিস্টার্ড প্লেয়ারদের ভেরিফিকেশন তালিকা (<span id="playerCount">০</span> জন):</h4>
+            <div id="adminPlayerList">
+                <i style="color: #777;">লোড হচ্ছে...</i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <div class="nav-item" onclick="switchSection('home')">🏠 Home</div>
+        <div class="nav-item" onclick="checkAdminAccess()">⚙️ Admin Panel</div>
+    </div>
+
+    <script>
+        let tournaments = [];
+        let players = [];
+        let tempImage = "";
+        let selectedTournamentId = null;
+
+        function setDefaultDateTime() {
+            let now = new Date();
+            let localIsoTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            let timeInput = document.getElementById('tDateTime');
+            if (timeInput) timeInput.value = localIsoTime;
+        }
+
+        window.onload = function() {
+            setDefaultDateTime();
+            fetchDataFromFirebase();
+            setInterval(updateCountdowns, 1000);
+        };
+
+        function switchSection(section) {
+            document.getElementById('homeSection').style.display = 'none';
+            document.getElementById('joinSection').style.display = 'none';
+            document.getElementById('adminSection').style.display = 'none';
+            document.getElementById('loginSection').style.display = 'none';
+
+            if(section === 'home') document.getElementById('homeSection').style.display = 'block';
+            if(section === 'join') document.getElementById('joinSection').style.display = 'block';
+            if(section === 'admin') {
+                document.getElementById('adminSection').style.display = 'block';
+                setDefaultDateTime();
+                updateAdminResultDropdown();
+                renderAdminManageList();
+                renderAdminList();
+            }
+            if(section === 'login') document.getElementById('loginSection').style.display = 'block';
+            window.scrollTo(0, 0);
+        }
+
+        function checkAdminAccess() {
+            let user = auth.currentUser;
+            if (user && user.email === ADMIN_EMAIL) {
+                switchSection('admin');
+            } else {
+                switchSection('login');
+            }
+        }
+
+        function loginWithGoogle() {
+            let provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).then((result) => {
+                if (result.user.email === ADMIN_EMAIL) {
+                    alert("স্বাগতম অ্যাডমিন!");
+                    switchSection('admin');
+                } else {
+                    alert("⚠️ এই জিমেইলটি অ্যাডমিন নয়!");
+                    auth.signOut();
+                    switchSection('home');
+                }
+            }).catch((error) => {
+                alert("লগইন ব্যর্থ হয়েছে: " + error.message);
+            });
+        }
+
+        function logoutAdmin() {
+            auth.signOut().then(() => {
+                alert("লগআউট সফল হয়েছে!");
+                switchSection('home');
+            });
+        }
+
+        function fetchDataFromFirebase() {
+            db.collection("tournaments").onSnapshot((snapshot) => {
+                tournaments = [];
+                snapshot.forEach((doc) => {
+                    tournaments.push({ id: doc.id, ...doc.data() });
+                });
+                renderTournaments();
+                renderAdminManageList();
+                updateAdminResultDropdown();
+            });
+
+            db.collection("players").onSnapshot((snapshot) => {
+                players = [];
+                snapshot.forEach((doc) => {
+                    players.push({ docId: doc.id, ...doc.data() });
+                });
+                renderAdminList();
+                renderTournaments();
+            });
+        }
+
+        function handleImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) { tempImage = e.target.result; }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function openModal(imgSrc) {
+            document.getElementById('modalImg').src = imgSrc;
+            document.getElementById('imageModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('imageModal').style.display = 'none';
+        }
+
+        function createTournament() {
+            let name = document.getElementById('tName').value.trim();
+            let type = document.getElementById('tType').value;
+            let datetime = document.getElementById('tDateTime').value;
+            let feeInput = document.getElementById('tFee').value.trim();
+            let fee = feeInput === "" ? "0" : feeInput;
+            let prize = document.getElementById('tPrize').value || '0';
+            let maxPlayers = parseInt(document.getElementById('tMaxPlayers').value) || 2;
+            let perKill = document.getElementById('tPerKill').value || '0';
+            let rId = document.getElementById('tRoomId').value.trim();
+            let rPass = document.getElementById('tRoomPass').value.trim();
+
+            if(!name || !datetime) {
+                alert("দয়া করে টুর্নামেন্টের নাম এবং ডেট-টাইম পূরণ করুন!");
+                return;
+            }
+
+            db.collection("tournaments").add({
+                name, type, datetime, fee, prize, maxPlayers, perKill, rId, rPass,
+                winners: { first: "", second: "", third: "", topKiller: "" }
+            }).then(() => {
+                alert("নতুন টুর্নামেন্ট অনলাইনে তৈরি করা হয়েছে!");
+                switchSection('home');
+            });
+        }
+
+        function deleteTournament(docId) {
+            if(confirm("আপনি কি নিশ্চিতভাবে এই টুর্নামেন্টটি ডিলিট করতে চান?")) {
+                db.collection("tournaments").doc(docId).delete().then(() => {
+                    alert("টুর্নামেন্ট ডিলিট করা হয়েছে!");
+                });
+            }
+        }
+
+        function updateAdminResultDropdown() {
+            let select = document.getElementById('resultTournamentSelect');
+            if(!select) return;
+            if(tournaments.length === 0) {
+                select.innerHTML = '<option value="">কোনো টুর্নামেন্ট নেই</option>';
+                return;
+            }
+            let html = "";
+            tournaments.forEach(t => {
+                html += `<option value="${t.id}">${t.name} (${t.type})</option>`;
+            });
+            select.innerHTML = html;
+            loadTournamentResultData();
+        }
+
+        function loadTournamentResultData() {
+            let selectId = document.getElementById('resultTournamentSelect').value;
+            let targetT = tournaments.find(t => t.id == selectId);
+            if(targetT && targetT.winners) {
+                document.getElementById('resFirst').value = targetT.winners.first || "";
+                document.getElementById('resSecond').value = targetT.winners.second || "";
+                document.getElementById('resThird').value = targetT.winners.third || "";
+                document.getElementById('resTopKiller').value = targetT.winners.topKiller || "";
+            }
+        }
+
+        function saveTournamentResults() {
+            let selectId = document.getElementById('resultTournamentSelect').value;
+            let targetT = tournaments.find(t => t.id == selectId);
+            if(!targetT) {
+                alert("দয়া করে সঠিক টুর্নামেন্ট সিলেক্ট করুন!");
+                return;
+            }
+
+            let winners = {
+                first: document.getElementById('resFirst').value.trim(),
+                second: document.getElementById('resSecond').value.trim(),
+                third: document.getElementById('resThird').value.trim(),
+                topKiller: document.getElementById('resTopKiller').value.trim()
+            };
+
+            db.collection("tournaments").doc(selectId).update({ winners }).then(() => {
+                alert("রেজাল্ট অনলাইনে সেভ করা হয়েছে!");
+                switchSection('home');
+            });
+        }
+
+        function removePlayer(docId) {
+            if(confirm("আপনি কি নিশ্চিতভাবে এই প্লেয়ারের রেজিস্ট্রেশন বাতিল করতে চান?")) {
+                db.collection("players").doc(docId).delete().then(() => {
+                    alert("প্লেয়ারের রেজিস্ট্রেশন বাতিল করা হয়েছে!");
+                });
+            }
+        }
+
+        function renderAdminManageList() {
+            let container = document.getElementById('adminTournamentManageList');
+            if(!container) return;
+            if(tournaments.length === 0) {
+                container.innerHTML = '<i style="color:#777;">কোনো টুর্নামেন্ট নেই...</i>';
+                return;
+            }
+            let html = "";
+            tournaments.forEach((t) => {
+                let feeText = (parseInt(t.fee) === 0 || t.fee === "") ? "🎁 ফ্রি ম্যাচ" : `₹${t.fee}`;
+                html += `
+                    <div style="background:#252525; padding:8px; border-radius:6px; margin-top:6px; font-size:13px; display:flex; justify-content:space-between; align-items:center;">
+                        <span><b>${t.name}</b> (${feeText})</span>
+                        <button class="btn-danger" style="width:auto; margin:0; padding:5px 10px;" onclick="deleteTournament('${t.id}')">🗑️ ডিলিট</button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderTournaments() {
+            let listContainer = document.getElementById('tournamentsList');
+            if(!listContainer) return;
+            if(tournaments.length === 0) {
+                listContainer.innerHTML = '<p style="color:#777; text-align:center; margin-top:20px;">কোনো চলমান টুর্নামেন্ট নেই।</p>';
+                return;
+            }
+
+            let html = "";
+            let now = new Date().getTime();
+
+            tournaments.forEach((t, idx) => {
+                let matchPlayers = players.filter(p => p.tournamentId === t.id);
+                let joinedCount = matchPlayers.filter(p => p.approved).length;
+                let isFull = joinedCount >= t.maxPlayers;
+                let matchTime = new Date(t.datetime).getTime();
+                let isTimeOver = matchTime - now < 0;
+                let userApprovedForThis = matchPlayers.some(p => p.approved && p.tournamentId === t.id);
+
+                let isFree = (parseInt(t.fee) === 0 || t.fee === "");
+
+                let actionButton = "";
+                let roomDetailsHtml = "";
+                let leaderboardHtml = "";
+
+                if (isTimeOver) {
+                    actionButton = `<button class="btn-disabled">🔴 Registration Closed (ম্যাচ শুরু)</button>`;
+                } else if (isFull && !userApprovedForThis) {
+                    actionButton = `<button class="btn-disabled">🔴 Team Full (স্লট পূর্ণ)</button>`;
+                } else if (userApprovedForThis) {
+                    actionButton = `<button class="btn-confirmed">✅ Confirmed / Joined</button>`;
+                } else {
+                    if (isFree) {
+                        actionButton = `<button class="btn-free" onclick="openJoinForm('${t.id}', '${t.name}', '${t.fee}')">🎁 ফ্রি জয়েন করুন (Free Join)</button>`;
+                    } else {
+                        actionButton = `<button class="btn-primary" onclick="openJoinForm('${t.id}', '${t.name}', '${t.fee}')">জয়েন করুন</button>`;
+                    }
+                }
+
+                if (userApprovedForThis && isTimeOver) {
+                    roomDetailsHtml = `
+                        <div class="room-box">
+                            <h4 style="margin: 0 0 6px 0; color: #52b788; font-size: 13px;">🎮 কাস্টম রুম ডিটেইলস:</h4>
+                            <b>Room ID:</b> <span style="color: #fff; font-size: 15px;">${t.rId || 'অ্যাডমিন এখনো দেননি'}</span><br>
+                            <b>Password:</b> <span style="color: #fff; font-size: 15px;">${t.rPass || '---'}</span>
+                        </div>
+                    `;
+                }
+
+                if (t.winners && (t.winners.first || t.winners.topKiller)) {
+                    leaderboardHtml = `
+                        <div class="leaderboard-box">
+                            <h4 style="margin: 0 0 6px 0; color: #ffcc00; font-size: 13px;">🏆 টুর্নামেন্ট রেজাল্ট ও লিডারবোর্ড:</h4>
+                            ${t.winners.first ? `🥇 <b>১ম স্থান:</b> <span style="color:#fff;">${t.winners.first}</span><br>` : ''}
+                            ${t.winners.second ? `🥈 <b>২য় স্থান:</b> <span style="color:#fff;">${t.winners.second}</span><br>` : ''}
+                            ${t.winners.third ? `🥉 <b>৩য় স্থান:</b> <span style="color:#fff;">${t.winners.third}</span><br>` : ''}
+                            ${t.winners.topKiller ? `<div style="margin-top:5px; border-top:1px dashed #4a3b6c; padding-top:4px;">🔥 <b>টপ কিলার:</b> <span style="color:#ff6b6b; font-weight:bold;">${t.winners.topKiller}</span></div>` : ''}
+                        </div>
+                    `;
+                }
+
+                let dateObj = new Date(t.datetime);
+                let timeString = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                let feeBadge = isFree ? `<b style="color: #c77dff;">🎁 ফ্রি ম্যাচ (Free)</b>` : `<b style="color: #52b788;">₹${t.fee}</b>`;
+
+                html += `
+                    <div class="tournament-card ${isFree ? 'free-card' : ''}">
+                        <h4 style="margin:0 0 5px 0;">${t.name}</h4>
+                        <p style="margin:4px 0; font-size: 13px; color: #ccc;">টাইপ: ${t.type} | স্লট: ${joinedCount}/${t.maxPlayers} জন</p>
+                        <p style="margin:4px 0; font-size: 13px; color: #ffc107;">🏆 প্রাইজ পুল: ₹${t.prize} | পার কিল: ₹${t.perKill}</p>
+                        <p style="margin:4px 0; font-size: 13px;">🎟️ এন্ট্রি ফি: ${feeBadge}</p>
+                        <div class="timer-badge">
+                            ⏰ ম্যাচ শুরু: <b style="color:#fff;">${timeString}</b><br>
+                            ⏳ লাইভ কাউন্টডাউন: <span id="countdown-${idx}" style="color:#ffcc00; font-family:monospace;">হিসেব করা হচ্ছে...</span>
+                        </div>
+                        ${actionButton}
+                        ${roomDetailsHtml}
+                        ${leaderboardHtml}
+                    </div>
+                `;
+            });
+            listContainer.innerHTML = html;
+        }
+
+        function updateCountdowns() {
+            let now = new Date().getTime();
+            tournaments.forEach((t, idx) => {
+                let timerElement = document.getElementById(`countdown-${idx}`);
+                if (!timerElement) return;
+
+                let matchTime = new Date(t.datetime).getTime();
+                let distance = matchTime - now;
+
+                if (distance < 0) {
+                    timerElement.innerHTML = "🔴 ম্যাচ শুরু হয়ে গেছে!";
+                } else {
+                    let hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    let minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                    let seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                    timerElement.innerHTML = `${hours} ঘণ্টা ${minutes} মিনিট ${seconds} সেকেন্ড`;
+                }
+            });
+        }
+
+        function openJoinForm(id, name, fee) {
+            selectedTournamentId = id;
+            document.getElementById('joinMatchTitle').innerText = name;
+            
+            let targetT = tournaments.find(t => t.id === id);
+            let isFree = targetT && (parseInt(targetT.fee) === 0 || targetT.fee === "");
+
+            let paymentContainer = document.getElementById('paymentBoxContainer');
+            if (isFree) {
+                document.getElementById('joinFeeText').innerText = `এন্ট্রি ফি: সম্পূর্ণ ফ্রি! (নিচের ফর্মটি পূরণ করে সরাসরি জয়েন করুন)`;
+                paymentContainer.style.display = "none";
+                tempImage = "FREE";
+            } else {
+                document.getElementById('joinFeeText').innerText = `এন্ট্রি ফি: ₹${fee} (পেমেন্ট করে নিচের ফর্মটি পূরণ করুন)`;
+                paymentContainer.style.display = "block";
+                tempImage = "";
+            }
+
+            switchSection('join');
+        }
+
+        function submitRegistration() {
+            let name = document.getElementById('pName').value.trim() || "Unknown Player";
+            let uid = document.getElementById('pUid').value.trim();
+            let phone = document.getElementById('pPhone').value.trim();
+
+            let uidRegex = /^\d{8,12}$/;
+            if(!uid || !uidRegex.test(uid)) {
+                alert("⚠️ ফ্রি ফায়ার UID ভুল আছে! UID অবশই ৮ থেকে ১২ ডিজিটের শুধুমাত্র সংখ্যা হতে হবে।");
+                return;
+            }
+
+            let phoneRegex = /^\d{10}$/;
+            if(!phone || !phoneRegex.test(phone)) {
+                alert("⚠️ আপনার হোয়াটসঅ্যাপ নম্বর ভুল আছে! নম্বরটি সঠিক ১০ ডিজিটের হতে হবে।");
+                return;
+            }
+
+            let targetT = tournaments.find(t => t.id === selectedTournamentId);
+            let isFree = targetT && (parseInt(targetT.fee) === 0 || targetT.fee === "");
+
+            if(!isFree && !tempImage) {
+                alert("⚠️ পেমেন্টের স্ক্রিনশট আপলোড করুন!");
+                return;
+            }
+
+            db.collection("players").add({
+                tournamentId: selectedTournamentId,
+                name, uid, phone,
+                img: tempImage,
+                approved: false,
+                time: new Date().getTime()
+            }).then(() => {
+                alert("সফলভাবে সাবমিট হয়েছে! অ্যাডমিন যাচাই করার পর আপনার এপ্রুভাল সম্পন্ন হবে।");
+                switchSection('home');
+            });
+        }
+
+        function getTimeAgo(timestamp) {
+            let now = new Date().getTime();
+            let diffSeconds = Math.floor((now - timestamp) / 1000);
+            if (diffSeconds < 60) return "এইমাত্র (Just now)";
+            let diffMinutes = Math.floor(diffSeconds / 60);
+            if (diffMinutes < 60) return `${diffMinutes} মিনিট আগে`;
+            let diffHours = Math.floor(diffMinutes / 60);
+            if (diffHours < 24) return `${diffHours} ঘণ্টা আগে`;
+            let diffDays = Math.floor(diffHours / 24);
+            return `${diffDays} দিন আগে`;
+        }
+
+        function renderAdminList() {
+            let listContainer = document.getElementById('adminPlayerList');
+            let countSpan = document.getElementById('playerCount');
+            if(!listContainer || !countSpan) return;
+            countSpan.innerText = players.length;
+            
+            if(players.length === 0) {
+                listContainer.innerHTML = '<i style="color: #777;">এখনও কেউ রেজিস্টার করেনি...</i>';
+                return;
+            }
+
+            let html = "";
+            players.forEach((p) => {
+                let targetT = tournaments.find(t => t.id === p.tournamentId);
+                let tName = targetT ? targetT.name : "Unknown";
+                let timeAgoText = getTimeAgo(p.time);
+                let isFreeMatch = targetT && (parseInt(targetT.fee) === 0 || targetT.fee === "");
+
+                let imgPreviewHtml = isFreeMatch ? `<small style="color:#c77dff;">[ফ্রি ম্যাচ]</small>` : `<img src="${p.img}" class="preview-img" onclick="openModal('${p.img}')"><br>`;
+
+                html += `
+                    <div class="player-item">
+                        <b>টুর্নামেন্ট: ${tName}</b><br>
+                        ইন-গেম নাম: ${p.name} | UID: <b style="color:#ffcc00;">${p.uid}</b><br>
+                        ফোন: ${p.phone}<br>
+                        স্ট্যাটাস: <span style="color: ${p.approved ? '#52b788' : '#ffc107'}">${p.approved ? '✅ Confirmed' : '⏳ পেন্ডিং'}</span><br>
+                        <div class="time-ago">🕒 ${timeAgoText}</div><br>
+                        ${imgPreviewHtml}
+                        <div style="display: flex; gap: 5px; margin-top: 6px;">
+                            ${!p.approved ? `<button class="btn-primary" style="background:#2a9d8f; padding:6px; font-size:13px; margin:0; flex:1;" onclick="approvePlayer('${p.docId}')">এপ্রুভ</button>` : ''}
+                            <button class="btn-danger" style="padding:6px; font-size:13px; margin:0; flex:1;" onclick="removePlayer('${p.docId}')">❌ বাতিল</button>
+                        </div>
+                    </div>
+                `;
+            });
+            listContainer.innerHTML = html;
+        }
+
+        function approvePlayer(docId) {
+            db.collection("players").doc(docId).update({ approved: true }).then(() => {
+                alert("প্লেয়ার সফলভাবে এপ্রুভ করা হয়েছে!");
+            });
+        }
+    </script>
+</body>
+</html>
